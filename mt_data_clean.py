@@ -17,7 +17,6 @@ result_en = open("result_eng.txt", "w")
 result_es = open("result_esp.txt", "w")
 
 dictionary = {}
-
 source_phrase = ""
 
 print("Regex filtering...")
@@ -30,40 +29,42 @@ for index, phrase in enumerate(phrases):
     # Detect and fix technical issues in the content
     phrase = re.sub("\n|\t|\r|\*", " ", phrase)
     phrase = re.sub(r"\\n", "", phrase)
-    # phrase = re.sub("\\0\\", "%s", phrase)
+    
     phrase = re.sub(r"\\", "", phrase)
 
     # Normalize escaped characters/entities
     phrase = re.sub("&lt;", "<", phrase)
     phrase = re.sub("&gt;", ">", phrase)
     phrase = re.sub("&amp;", "&", phrase)
-    phrase = re.sub("&quot;|&rdquo;|&ldquo;|“|”", "\"", phrase)
     phrase = re.sub("&mdash;", "--", phrase)
     phrase = re.sub("&ndash;|&#8211;", "-", phrase)
-    phrase = re.sub("&lsquo;|&rsquo;|&#39;|‘|’|&#x2019;", "\'", phrase)
     phrase = re.sub(u"\u00A0", " ", phrase)
     phrase = re.sub(u"\u2026", " ", phrase)
     phrase = re.sub(u"\u2020", " ", phrase)
     phrase = re.sub("&nbsp;|&middot;|•|©|�|&rarr;|&larr;|&hellip;|&copy|&#xd;|&#x202f;", " ", phrase)
     phrase = re.sub("&shy;", "", phrase)
     phrase = re.sub("&atilde;", "ã", phrase)
+
+    # Normalize quotes
+    phrase = re.sub("&quot;|&rdquo;|&ldquo;|“|”", "\"", phrase)
+    phrase = re.sub("&lsquo;|&rsquo;|&#39;|‘|’|&#x2019;", "\'", phrase)
     
-    # phrase = re.sub("%d|%s|%1$d|%2$d", "0", phrase)
+    
 
     # Removing tags that don’t affect the meaning
-    # Check unbalanced brackets(? – you should probably remove these, too)
     phrase = re.sub("<.*?>|{.*?}|\\($.*?\\)", " ", phrase)
+
+    # Check unbalanced brackets(? – you should probably remove these, too)
     phrase = re.sub("{|}", "", phrase)
 
-    # Normalize whitespaces
+    # Normalize certain control characters and normalize whitespaces
     phrase = re.sub(" +", " ", phrase)
     phrase = re.sub("^ ", "", phrase)
 
-
-    # phrase = re.sub("^\*", "", phrase)
     phrase = re.sub("^\.*", "", phrase)
     phrase = re.sub("&amp;", "&", phrase)
     phrase = phrase.strip(". ")
+    phrase = re.sub("[0-9]$", "", phrase)
 
     if index % 2 == 0:
         source_phrase = phrase
@@ -80,7 +81,8 @@ for source in list(dictionary):
     # Remove segments that are too short(<3 words) (14)
     # Identify and remove duplicates with no context for MT training purposes
     # Check sentence length ratios and remove if the ratio exceeds your threshold (16)
-    
+    # Characters that do not match either the expected source or target language(? - only if you have lists of valid characters to use)
+    # Do not remove segments where source = target(? – you probably should remove them)
     if isinstance(dictionary[source], list):
         dictionary.pop(source)
     else:
@@ -89,7 +91,7 @@ for source in list(dictionary):
                     len(source.split()) < 3  or source is None or dictionary[source] is None or 
                     len(dictionary[source].split()) > (2 * len(source.split())) or 
                     len(source.split()) > (2 * len(dictionary[source].split())) or source == dictionary[source] or
-                    re.search("á|é|í|ó|ú", source) is not None or SequenceMatcher(None, source, dictionary[source]).ratio() > 0.9)
+                    re.search("á|é|í|ó|ú|ñ", source) is not None or SequenceMatcher(None, source, dictionary[source]).ratio() > 0.9)
 
         if rm_entry:
             dictionary.pop(source)
@@ -98,6 +100,7 @@ print("Still deleting entries...")
 
 print("Number of items in dictionary: {0}".format(len(dictionary)))
 
+# Remove entries consisting of only punctuation, whitespace, or tags (like #8)
 # Check if a segment contains mostly non-text content            
 for source in list(dictionary):
     num_char_source = len(source)
